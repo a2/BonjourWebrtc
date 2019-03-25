@@ -58,12 +58,12 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
     self.view.addGestureRecognizer(zoomGestureRecognizer)
     self.remoteView?.delegate=self
     self.localView?.delegate=self
-    NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(RTCVideoChatViewController.orientationChanged(_:)), name: "UIDeviceOrientationDidChangeNotification", object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(RTCVideoChatViewController.orientationChanged(_:)), name: UIDevice.orientationDidChangeNotification, object: nil)
     // Do any additional setup after loading the view.
 
   }
   
-  override func viewWillAppear(animated: Bool) {
+  override func viewWillAppear(_ animated: Bool) {
     self.navigationController?.setNavigationBarHidden(true, animated: true)
     self.localViewBottomConstraint?.constant=0.0
     self.localViewRightConstraint?.constant=0.0
@@ -72,24 +72,24 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
     self.footerViewBottomConstraint?.constant=0.0
   }
   
-  override func  viewWillDisappear(animated: Bool) {
+  override func  viewWillDisappear(_ animated: Bool) {
     self.navigationController?.setNavigationBarHidden(false, animated: false)
-    NSNotificationCenter.defaultCenter().removeObserver(self)
+    NotificationCenter.default.removeObserver(self)
   }
   
-  override func  shouldAutorotate() -> Bool {
+  override var shouldAutorotate: Bool {
     return true
   }
   
-  override func supportedInterfaceOrientations() -> UIInterfaceOrientationMask {
-    return UIInterfaceOrientationMask.AllButUpsideDown
+  override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+    return .allButUpsideDown
   }
   
   func applicationWillResignActive(application:UIApplication){
     self.disconnect()
   }
   
-  func orientationChanged(notification:NSNotification){
+  @objc func orientationChanged(_ notification:NSNotification){
     if let _ = self.localVideoSize {
       self.videoView(self.localView!, didChangeVideoSize: self.localVideoSize!)
     }
@@ -97,7 +97,7 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
       self.videoView(self.remoteView!, didChangeVideoSize: self.remoteVideoSize!)
     }
   }
-  override func prefersStatusBarHidden() -> Bool {
+  override var prefersStatusBarHidden: Bool {
     return true
   }
   
@@ -106,24 +106,24 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
     // Dispose of any resources that can be recreated.
   }
   
-  @IBAction func audioButtonPressed (sender:UIButton){
-    sender.selected = !sender.selected
+  @IBAction func audioButtonPressed (_ sender:UIButton){
+    sender.isSelected = !sender.isSelected
 
   }
-  @IBAction func videoButtonPressed(sender:UIButton){
-    sender.selected = !sender.selected
+  @IBAction func videoButtonPressed(_ sender:UIButton){
+    sender.isSelected = !sender.isSelected
  
   }
   
-  @IBAction func hangupButtonPressed(sender:UIButton){
+  @IBAction func hangupButtonPressed(_ sender:UIButton){
     self.sendDisconnectToPeer()
     self.disconnect()
-    self.navigationController?.popToRootViewControllerAnimated(true)
+    self.navigationController?.popToRootViewController(animated: true)
   }
   
   func disconnect(){
-    self.localVideoTrack?.removeRenderer(self.localView)
-    self.remoteVideoTrack?.removeRenderer(self.remoteView)
+    self.localVideoTrack?.remove(self.localView)
+    self.remoteVideoTrack?.remove(self.remoteView)
     self.localView?.renderFrame(nil)
     self.remoteView?.renderFrame(nil)
     self.localVideoTrack=nil
@@ -132,15 +132,15 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
   }
   
   func remoteDisconnected(){
-    self.remoteVideoTrack?.removeRenderer(self.remoteView)
+    self.remoteVideoTrack?.remove(self.remoteView)
     self.remoteView?.renderFrame(nil)
     if self.localVideoSize != nil {
       self.videoView(self.localView!, didChangeVideoSize: self.localVideoSize!)
     }
   }
   
-  func toggleButtonContainer() {
-    UIView.animateWithDuration(0.3, animations: { () -> Void in
+  @objc func toggleButtonContainer() {
+    UIView.animate(withDuration: 0.3, animations: { () -> Void in
       if (self.buttonContainerViewLeftConstraint!.constant <= -40.0) {
         self.buttonContainerViewLeftConstraint!.constant=20.0
         self.buttonContainerView!.alpha=1.0;
@@ -153,39 +153,39 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
     })
   }
   
-  func zoomRemote() {
+  @objc func zoomRemote() {
     //Toggle Aspect Fill or Fit
     self.isZoom = !self.isZoom;
     self.videoView(self.remoteView!, didChangeVideoSize: self.remoteVideoSize!)
   }
   
 
-  func localStreamAvailable(stream: RTCMediaStream) {
-    
-    dispatch_async(dispatch_get_main_queue()) {
+  func localStreamAvailable(_ stream: RTCMediaStream) {
+
+    DispatchQueue.main.async {
     let localVideoTrack = stream.videoTracks[0]
-    self.localVideoTrack?.removeRenderer(self.localView)
+    self.localVideoTrack?.remove(self.localView)
     self.localView?.renderFrame(nil)
     self.localVideoTrack=localVideoTrack as? RTCVideoTrack
-    self.localVideoTrack?.addRenderer(self.localView)
+    self.localVideoTrack?.add(self.localView)
     }
   }
  
-  func remoteStreamAvailable(stream: RTCMediaStream) {
-    dispatch_async(dispatch_get_main_queue()) {
+  func remoteStreamAvailable(_ stream: RTCMediaStream) {
+    DispatchQueue.main.async {
     let remoteVideoTrack = stream.videoTracks[0]
-    dispatch_after(2, dispatch_get_main_queue()) { () -> Void in
+      DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) {
       let audioSession:AVAudioSession = AVAudioSession.sharedInstance()
       do{
-        try audioSession.overrideOutputAudioPort(AVAudioSessionPortOverride.Speaker)
+        try audioSession.overrideOutputAudioPort(.speaker)
       }
       catch{
         print("Audio Port Error");
       }
     }
     self.remoteVideoTrack=remoteVideoTrack as? RTCVideoTrack
-    self.remoteVideoTrack?.addRenderer(self.remoteView)
-    UIView.animateWithDuration(0.4, animations: { () -> Void in
+    self.remoteVideoTrack?.add(self.remoteView)
+    UIView.animate(withDuration: 0.4, animations: {
       self.localViewBottomConstraint?.constant=28.0
       self.localViewRightConstraint?.constant=28.0
       self.localViewHeightConstraint?.constant=self.view.frame.size.height/4
@@ -196,8 +196,8 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
   }
 
   func updateUIForRotation(){
-    let statusBarOrientation:UIInterfaceOrientation = UIApplication.sharedApplication().statusBarOrientation;
-    let deviceOrientation:UIDeviceOrientation  = UIDevice.currentDevice().orientation
+    let statusBarOrientation:UIInterfaceOrientation = UIApplication.shared.statusBarOrientation;
+    let deviceOrientation:UIDeviceOrientation  = UIDevice.current.orientation
     if (statusBarOrientation.rawValue==deviceOrientation.rawValue){
       if let  _ = self.localVideoSize {
       self.videoView(self.localView!, didChangeVideoSize: self.localVideoSize!)
@@ -211,24 +211,24 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
     }
   }
   
-  func videoView(videoView: RTCEAGLVideoView, didChangeVideoSize size: CGSize) {
-    dispatch_async(dispatch_get_main_queue()) {
-    let orientation: UIInterfaceOrientation = UIApplication.sharedApplication().statusBarOrientation
-    UIView.animateWithDuration(0.4, animations: { () -> Void in
+  func videoView(_ videoView: RTCEAGLVideoView, didChangeVideoSize size: CGSize) {
+    DispatchQueue.main.async {
+    let orientation: UIInterfaceOrientation = UIApplication.shared.statusBarOrientation
+    UIView.animate(withDuration: 0.4, animations: { () -> Void in
       let containerWidth: CGFloat = self.view.frame.size.width
       let containerHeight: CGFloat = self.view.frame.size.height
-      let defaultAspectRatio: CGSize = CGSizeMake(4, 3)
+      let defaultAspectRatio: CGSize = CGSize(width: 4, height: 3)
       if videoView == self.localView {
         self.localVideoSize = size
-        let aspectRatio: CGSize = CGSizeEqualToSize(size, CGSizeZero) ? defaultAspectRatio : size
+        let aspectRatio: CGSize = size == .zero ? defaultAspectRatio : size
         var videoRect: CGRect = self.view.bounds
         if (self.remoteVideoTrack != nil) {
-          videoRect = CGRectMake(0.0, 0.0, self.view.frame.size.width / 4.0, self.view.frame.size.height / 4.0)
-          if orientation == UIInterfaceOrientation.LandscapeLeft || orientation == UIInterfaceOrientation.LandscapeRight {
-            videoRect = CGRectMake(0.0, 0.0, self.view.frame.size.height / 4.0, self.view.frame.size.width / 4.0)
+          videoRect = CGRect(x: 0.0, y: 0.0, width: self.view.frame.size.width / 4.0, height: self.view.frame.size.height / 4.0)
+          if orientation == .landscapeLeft || orientation == .landscapeRight {
+            videoRect = CGRect(x: 0.0, y: 0.0, width: self.view.frame.size.height / 4.0, height: self.view.frame.size.width / 4.0)
           }
         }
-        let videoFrame: CGRect = AVMakeRectWithAspectRatioInsideRect(aspectRatio, videoRect)
+        let videoFrame: CGRect = AVMakeRect(aspectRatio: aspectRatio, insideRect: videoRect)
         self.localViewWidthConstraint!.constant = videoFrame.size.width
         self.localViewHeightConstraint!.constant = videoFrame.size.height
         if (self.remoteVideoTrack != nil) {
@@ -242,9 +242,9 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
       }
       else if videoView == self.remoteView {
         self.remoteVideoSize = size
-        let aspectRatio: CGSize = CGSizeEqualToSize(size, CGSizeZero) ? defaultAspectRatio : size
+        let aspectRatio: CGSize = size == .zero ? defaultAspectRatio : size
         let videoRect: CGRect = self.view.bounds
-        var videoFrame: CGRect = AVMakeRectWithAspectRatioInsideRect(aspectRatio, videoRect)
+        var videoFrame: CGRect = AVMakeRect(aspectRatio: aspectRatio, insideRect: videoRect)
         if self.isZoom {
           let scale: CGFloat = max(containerWidth / videoFrame.size.width, containerHeight / videoFrame.size.height)
           videoFrame.size.width *= scale
@@ -259,29 +259,29 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
     })
     }
   }
-  func offerSDPCreated(sdp:RTCSessionDescription){
-    let json = ["offerSDP":sdp.jsonDictionary()]
+  func offerSDPCreated(_ sdp:RTCSessionDescription){
+    let json: [String: Any] = ["offerSDP":sdp.jsonDictionary()]
     bonjourServiceManager.sendDataToSelectedPeer(json)
   }
-  func answerSDPCreated(sdp:RTCSessionDescription){
-    let json = ["answerSDP":sdp.jsonDictionary()]
+  func answerSDPCreated(_ sdp:RTCSessionDescription){
+    let json: [String: Any] = ["answerSDP":sdp.jsonDictionary()]
     bonjourServiceManager.sendDataToSelectedPeer(json)
   
   }
-  func iceCandidatesCreated(iceCandidate:RTCICECandidate){
-    let json = ["iceCandidate":iceCandidate.jsonDictionary()]
+  func iceCandidatesCreated(_ iceCandidate:RTCICECandidate){
+    let json: [String: Any] = ["iceCandidate":iceCandidate.jsonDictionary()]
     bonjourServiceManager.sendDataToSelectedPeer(json)
   }
   
   func sendDisconnectToPeer(){
-    let json = ["disconnect":"disconnect"]
+    let json: [String: Any] = ["disconnect":"disconnect"]
     bonjourServiceManager.sendDataToSelectedPeer(json)
   }
   
-  func connectedDevicesChanged(manager : BonjourServiceManager, connectedDevices: [String]){
+  func connectedDevicesChanged(_ manager : BonjourServiceManager, connectedDevices: [String]){
     
   }
-  func receivedData(manager : BonjourServiceManager, peerID : String, responseString: String){
+  func receivedData(_ manager : BonjourServiceManager, peerID : String, responseString: String){
     let dictionary = convertStringToDictionary(responseString)
     let keyValue = dictionary?.keys.first
     if keyValue! == "offerSDP"{
@@ -301,30 +301,28 @@ class RTCVideoChatViewController: UIViewController,RTCEAGLVideoViewDelegate,Webr
       
       let description = dictionary!["iceCandidate"] as! [String:AnyObject]
       let iceCandidate = RTCICECandidate.init(fromJSONDictionary: description)
-      self.webrtcManager.setICECandidates(iceCandidate)
+      self.webrtcManager.setICECandidates(iceCandidate!)
     }
     else if keyValue! == "disconnect"{
-      dispatch_async(dispatch_get_main_queue(), { 
+      DispatchQueue.main.async {
         self.hangupButtonPressed(self.hangupButton!)
-      })
+      }
     }
     
   }
-  func convertStringToDictionary(text: String) -> [String:AnyObject]? {
-    if let data = text.dataUsingEncoding(NSUTF8StringEncoding) {
-      do {
-        return try NSJSONSerialization.JSONObjectWithData(data, options: []) as? [String:AnyObject]
-      } catch let error as NSError {
-        print(error)
-      }
+  func convertStringToDictionary(_ text: String) -> [String:AnyObject]? {
+    do {
+      return try JSONSerialization.jsonObject(with: Data(text.utf8), options: []) as? [String:AnyObject]
+    } catch let error as NSError {
+      print(error)
+      return nil
     }
-    return nil
   }
   
-  func dataReceivedInChannel(data: NSData) {
-    let dataAsString = String(data: data, encoding: NSUTF8StringEncoding)
-   let alert = UIAlertController(title: "", message:dataAsString, preferredStyle: .Alert)
-    alert.addAction(UIAlertAction(title: "OK", style: .Default) { _ in })
-    self.presentViewController(alert, animated: true){}
+  func dataReceivedInChannel(_ data: Data) {
+    let dataAsString = String(decoding: data, as: UTF8.self)
+    let alert = UIAlertController(title: "", message:dataAsString, preferredStyle: .alert)
+    alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in })
+    self.present(alert, animated: true){}
   }
 }

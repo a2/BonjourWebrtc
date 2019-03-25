@@ -23,74 +23,74 @@ class ViewController: UIViewController,UITableViewDelegate, UITableViewDataSourc
   override func viewDidLoad() {
     super.viewDidLoad()
     bonjourService.delegate = self
-    tableView.registerClass(UITableViewCell.self,
+    tableView.register(UITableViewCell.self,
                             forCellReuseIdentifier: "Cell")
     self.title = "Peers"
   }
   
-  override func viewWillAppear(animated: Bool) {
+  override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
     bonjourService.delegate = self
   }
   
-  override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+  override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
     let unownedSelf = self
-    if segue.destinationViewController.isKindOfClass(RTCVideoChatViewController){
-      let destinationController:RTCVideoChatViewController = segue.destinationViewController as! RTCVideoChatViewController
+    if segue.destination is RTCVideoChatViewController{
+      let destinationController:RTCVideoChatViewController = segue.destination as! RTCVideoChatViewController
       destinationController.isInitiator = unownedSelf.isInitiator
       BonjourServiceManager.sharedBonjourServiceManager.delegate = nil
     }
   }
   
-  func showAlert(caller : String) {
+  func showAlert(_ caller : String) {
     let unownedSelf = self
     let alert = UIAlertController(title: "Incoming Call",
                                   message: caller,
-                                  preferredStyle: .Alert)
-    let idx = peerListArray.indexOf(caller) //
+                                  preferredStyle: .alert)
+    let idx = peerListArray.index(of: caller) //
     let acceptAction = UIAlertAction(title: "Accept",
-                                     style: .Default,
+                                     style: .default,
                                      handler: { (action:UIAlertAction) -> Void in
                                       unownedSelf.bonjourService.callRequest("callAccepted", index: idx!)
                                       unownedSelf.isInitiator = false
                                       unownedSelf.startCallViewController()
     })
     let rejectAction = UIAlertAction(title: "Reject",
-                                     style: .Default) { (action: UIAlertAction) -> Void in
+                                     style: .default) { (action: UIAlertAction) -> Void in
                                       unownedSelf.bonjourService.callRequest("callRejected", index: idx!)
                                       
     }
     alert.addAction(acceptAction)
     alert.addAction(rejectAction)
-    presentViewController(alert, animated: true, completion: nil)
+    present(alert, animated: true)
   }
   
   func startCallViewController(){
     let unownedSelf = self
-    dispatch_async(dispatch_get_main_queue()) {
-      unownedSelf.performSegueWithIdentifier("showVideoCall", sender: unownedSelf)
+    DispatchQueue.main.async {
+      unownedSelf.performSegue(withIdentifier: "showVideoCall", sender: unownedSelf)
     }
   }
   
   // tableView
   
-  func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+  func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
     return 70
   }
   
   
-  func tableView(tableView: UITableView,
+  func tableView(_ tableView: UITableView,
                  numberOfRowsInSection section: Int) -> Int {
     return peerListArray.count
   }
   
-  func tableView(tableView: UITableView,cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-    let cell = tableView.dequeueReusableCellWithIdentifier("Cell")
+  func tableView(_ tableView: UITableView,cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    let cell = tableView.dequeueReusableCell(withIdentifier: "Cell")
     cell?.textLabel?.text = peerListArray[indexPath.row]
     return cell!
   }
   
-  func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+  func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
     bonjourService.callRequest("incomingCall", index: indexPath.row)
     self.isInitiator = true
   }
@@ -100,18 +100,18 @@ class ViewController: UIViewController,UITableViewDelegate, UITableViewDataSourc
 
 extension ViewController : BonjourServiceManagerProtocol {
   
-  func connectedDevicesChanged(manager: BonjourServiceManager, connectedDevices: [String]) {
+  func connectedDevicesChanged(_ manager: BonjourServiceManager, connectedDevices: [String]) {
     let unownedSelf = self
-    NSOperationQueue.mainQueue().addOperationWithBlock { () -> Void in
+    OperationQueue.main.addOperation {
       unownedSelf.connectionsLabel.text = "Connections: \(connectedDevices)"
       unownedSelf.peerListArray = connectedDevices
       unownedSelf.tableView.reloadData()
     }
   }
   
-  func receivedData(manager: BonjourServiceManager, peerID: String, responseString: String) {
+  func receivedData(_ manager: BonjourServiceManager, peerID: String, responseString: String) {
     let unownedSelf = self
-    dispatch_async(dispatch_get_main_queue()) {
+    DispatchQueue.main.async {
       switch responseString {
       case ResponseValue.incomingCall.rawValue :
         print("incomingCall")

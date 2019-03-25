@@ -24,32 +24,29 @@ class WebrtcManager: NSObject,RTCPeerConnectionDelegate,RTCSessionDescriptionDel
   override init() {
     super.init()
     peerConnectionFactory = RTCPeerConnectionFactory.init()
-    let iceServer = RTCICEServer.init(URI: NSURL(string: "stun:stun.l.google.com:19302"), username: "", password: "")
-    peerConnection = peerConnectionFactory?.peerConnectionWithICEServers([iceServer], constraints: RTCMediaConstraints(mandatoryConstraints: nil,optionalConstraints: [RTCPair.init(key: "DtlsSrtpKeyAgreement", value: "true")]), delegate: self)
+    let iceServer = RTCICEServer.init(uri: URL(string: "stun:stun.l.google.com:19302"), username: "", password: "")
+    peerConnection = peerConnectionFactory?.peerConnection(withICEServers: [iceServer], constraints: RTCMediaConstraints(mandatoryConstraints: nil,optionalConstraints: [RTCPair.init(key: "DtlsSrtpKeyAgreement", value: "true")]), delegate: self)
   }
   
   func addLocalMediaStream(){
     var cameraID: String?
-    for captureDevice in AVCaptureDevice.devicesWithMediaType(AVMediaTypeVideo) {
+    for captureDevice in AVCaptureDevice.devices(for: .video) {
       // Support Front cam alone, as it's suitable for video conferencing
-      if captureDevice.position == AVCaptureDevicePosition.Front {
+      if captureDevice.position == .front {
         cameraID = captureDevice.localizedName
       }
     }
     let videoCapturer = RTCVideoCapturer(deviceName: cameraID)
     self.videoCapturer = videoCapturer
-    let videoSource = peerConnectionFactory?.videoSourceWithCapturer(videoCapturer, constraints: nil)
-    let videoTrack = peerConnectionFactory?.videoTrackWithID("ARDAMSv0", source: videoSource)
-    localStream = peerConnectionFactory?.mediaStreamWithLabel("ARDAMS")
-    let audioTrack = peerConnectionFactory?.audioTrackWithID("ARDAMSa0")
+    let videoSource = peerConnectionFactory?.videoSource(with: videoCapturer, constraints: nil)
+    let videoTrack = peerConnectionFactory?.videoTrack(withID: "ARDAMSv0", source: videoSource)
+    localStream = peerConnectionFactory?.mediaStream(withLabel: "ARDAMS")
+    let audioTrack = peerConnectionFactory?.audioTrack(withID: "ARDAMSa0")
     localAudioTrack = audioTrack
     localVideoTrack = videoTrack
     localStream?.addVideoTrack(videoTrack)
    localStream?.addAudioTrack(audioTrack)
-    dispatch_async(dispatch_get_main_queue()) { 
-    
-    }
-    self.peerConnection?.addStream(localStream!)
+    self.peerConnection?.add(localStream!)
     self.delegate?.localStreamAvailable(localStream!)
   }
   
@@ -65,7 +62,7 @@ class WebrtcManager: NSObject,RTCPeerConnectionDelegate,RTCSessionDescriptionDel
   func createOffer(){
     addLocalMediaStream()
     let offerContratints = createConstraints()
-    self.peerConnection?.createOfferWithDelegate(self, constraints: offerContratints)
+    self.peerConnection?.createOffer(with: self, constraints: offerContratints)
   }
   
   func createConstraints() -> RTCMediaConstraints{
@@ -73,7 +70,7 @@ class WebrtcManager: NSObject,RTCPeerConnectionDelegate,RTCSessionDescriptionDel
     let pairOfferToReceiveVideo = RTCPair(key: "OfferToReceiveVideo", value: "true")
     let pairDtlsSrtpKeyAgreement = RTCPair(key: "DtlsSrtpKeyAgreement", value: "true")
     let peerConnectionConstraints = RTCMediaConstraints(mandatoryConstraints: [pairOfferToReceiveVideo,pairOfferToReceiveAudio], optionalConstraints: [pairDtlsSrtpKeyAgreement])
-    return peerConnectionConstraints
+    return peerConnectionConstraints!
   }
   
   func waitForAnswer(){
@@ -81,78 +78,76 @@ class WebrtcManager: NSObject,RTCPeerConnectionDelegate,RTCSessionDescriptionDel
   }
   
   func createAnswer(){
-    dispatch_async(dispatch_get_main_queue()) { 
+    DispatchQueue.main.async {
       let remoteSDP = self.remoteSDP!
       self.addLocalMediaStream()
-      self.peerConnection!.setRemoteDescriptionWithDelegate(self, sessionDescription: remoteSDP)
+      self.peerConnection!.setRemoteDescriptionWith(self, sessionDescription: remoteSDP)
     }
-      }
-  
-  func setAnswerSDP(){
-    dispatch_async(dispatch_get_main_queue()) {
-      self.peerConnection?.setRemoteDescriptionWithDelegate(self, sessionDescription: self.remoteSDP)
-      self.addUnusedIceCandidates()
-    }
-    
   }
   
-  func setICECandidates(iceCandidate:RTCICECandidate){
-    dispatch_async(dispatch_get_main_queue()) {
-      self.peerConnection?.addICECandidate(iceCandidate)
+  func setAnswerSDP(){
+    DispatchQueue.main.async {
+      self.peerConnection?.setRemoteDescriptionWith(self, sessionDescription: self.remoteSDP)
+      self.addUnusedIceCandidates()
+    }
+  }
+  
+  func setICECandidates(_ iceCandidate:RTCICECandidate){
+    DispatchQueue.main.async {
+      self.peerConnection?.add(iceCandidate)
     }
   }
   
   func addUnusedIceCandidates(){
     for (iceCandidate) in self.unusedICECandidates{
       print("added unused ices")
-      self.peerConnection?.addICECandidate(iceCandidate)
+      self.peerConnection?.add(iceCandidate)
     }
     self.unusedICECandidates = []
   }
-  func peerConnection(peerConnection: RTCPeerConnection!, addedStream stream: RTCMediaStream!) {
+  func peerConnection(_ peerConnection: RTCPeerConnection!, addedStream stream: RTCMediaStream!) {
     print("Log: PEER CONNECTION:- Stream Added")
     self.delegate?.remoteStreamAvailable(stream)
   }
   
-  func peerConnection(peerConnection: RTCPeerConnection!, gotICECandidate candidate: RTCICECandidate!) {
-    print("PEER CONNECTION:- Got ICE Candidate - \(candidate)")
+  func peerConnection(_ peerConnection: RTCPeerConnection!, gotICECandidate candidate: RTCICECandidate!) {
+    print("PEER CONNECTION:- Got ICE Candidate - \(candidate!)")
     self.delegate?.iceCandidatesCreated(candidate)
  
   }
-  func peerConnection(peerConnection: RTCPeerConnection!, iceConnectionChanged newState: RTCICEConnectionState)
-  {
+  func peerConnection(_ peerConnection: RTCPeerConnection, iceConnectionChanged newState: RTCICEConnectionState) {
     print("PEER CONNECTION:- ICE Connection Changed \(newState)")
   }
-  func peerConnection(peerConnection: RTCPeerConnection!, iceGatheringChanged newState: RTCICEGatheringState) {
+  func peerConnection(_ peerConnection: RTCPeerConnection, iceGatheringChanged newState: RTCICEGatheringState) {
     print("PEER CONNECTION:- ICE Gathering Changed - \(newState)")
   
   }
-  func peerConnection(peerConnection: RTCPeerConnection!, removedStream stream: RTCMediaStream!) {
+  func peerConnection(_ peerConnection: RTCPeerConnection, removedStream stream: RTCMediaStream!) {
     print("PEER CONNECTION:- Stream Removed")
   }
-  func peerConnection(peerConnection: RTCPeerConnection!, signalingStateChanged stateChanged: RTCSignalingState){
+  func peerConnection(_ peerConnection: RTCPeerConnection!, signalingStateChanged stateChanged: RTCSignalingState) {
     print("PEER CONNECTION:- Signaling State Changed \(stateChanged)")
   }
-  func peerConnectionOnRenegotiationNeeded(peerConnection: RTCPeerConnection!) {
+  func peerConnection(onRenegotiationNeeded peerConnection: RTCPeerConnection!) {
     print("PEER CONNECTION:- Renegotiation Needed")
   }
   
-  func peerConnection(peerConnection:RTCPeerConnection!, didOpenDataChannel dataChannel:RTCDataChannel) {
+  func peerConnection(_ peerConnection: RTCPeerConnection!, didOpen dataChannel:RTCDataChannel) {
     print("PEER CONNECTION:- Open Data Channel")
   }
 
-  func peerConnection(peerConnection: RTCPeerConnection!, didCreateSessionDescription sdp: RTCSessionDescription!, error: NSError!) {
+  func peerConnection(_ peerConnection: RTCPeerConnection!, didCreateSessionDescription sdp: RTCSessionDescription!, error: Error?) {
     if let er = error {
       print(er.localizedDescription)
     }
     if(sdp == nil) {
-      print("Problem creating SDP - \(sdp)")
+      print("Problem creating SDP - \(sdp!)")
     } else {
       
-      print("SDP created -: \(sdp)")
+      print("SDP created -: \(sdp!)")
     }
     self.localSDP = sdp
-    self.peerConnection?.setLocalDescriptionWithDelegate(self, sessionDescription: sdp)
+    self.peerConnection?.setLocalDescriptionWith(self, sessionDescription: sdp)
     if (initiator){
       self.delegate?.offerSDPCreated(sdp)
     }
@@ -161,16 +156,16 @@ class WebrtcManager: NSObject,RTCPeerConnectionDelegate,RTCSessionDescriptionDel
     }
   }
   
-  func peerConnection(peerConnection: RTCPeerConnection!, didSetSessionDescriptionWithError error: NSError!) {
+  func peerConnection(_ peerConnection: RTCPeerConnection!, didSetSessionDescriptionWithError error: Error?) {
     if error != nil{
-    print("sdp error \(error.localizedDescription) \(error)")
+      print("sdp error \(error!.localizedDescription) \(error!)")
     }
     else{
       print("SDP set success")
       if initiator == false && self.localSDP == nil{
       
         let answerConstraints = self.createConstraints()
-        self.peerConnection!.createAnswerWithDelegate(self, constraints: answerConstraints)
+        self.peerConnection!.createAnswer(with: self, constraints: answerConstraints)
       }
     }
   }

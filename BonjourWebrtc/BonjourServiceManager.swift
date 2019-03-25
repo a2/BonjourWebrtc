@@ -10,14 +10,14 @@ import Foundation
 import MultipeerConnectivity
 
 protocol BonjourServiceManagerProtocol {
-  func connectedDevicesChanged(manager : BonjourServiceManager, connectedDevices: [String])
-  func receivedData(manager : BonjourServiceManager, peerID : String, responseString: String)
+  func connectedDevicesChanged(_ manager : BonjourServiceManager, connectedDevices: [String])
+  func receivedData(_ manager : BonjourServiceManager, peerID : String, responseString: String)
 }
 
 class BonjourServiceManager : NSObject {
   static let sharedBonjourServiceManager = BonjourServiceManager()
   private let serviceType = "webrtc-service"
-  private let myPeerId = MCPeerID(displayName: UIDevice.currentDevice().name)
+  private let myPeerId = MCPeerID(displayName: UIDevice.current.name)
   private let serviceAdvertiser : MCNearbyServiceAdvertiser
   private let serviceBrowser : MCNearbyServiceBrowser
   var selectedPeer:MCPeerID?
@@ -39,50 +39,46 @@ class BonjourServiceManager : NSObject {
   }
   
   lazy var session: MCSession = {
-    let session = MCSession(peer: self.myPeerId, securityIdentity: nil, encryptionPreference: MCEncryptionPreference.Required)
+    let session = MCSession(peer: self.myPeerId, securityIdentity: nil, encryptionPreference: .required)
     session.delegate = self
     return session
   }()
   
   
   
-  func sendColor(colorName : String) {
+  func sendColor(_ colorName : String) {
     print("sendColor: \(colorName)")
     if session.connectedPeers.count > 0 {
-      var error : NSError?
       do {
-        try self.session.sendData(colorName.dataUsingEncoding(NSUTF8StringEncoding, allowLossyConversion: false)!, toPeers: session.connectedPeers, withMode: MCSessionSendDataMode.Reliable)
-      } catch let error1 as NSError {
-        error = error1
+        try self.session.send(Data(colorName.utf8), toPeers: session.connectedPeers, with: .reliable)
+      } catch {
         print("Error \(error)")
       }
     }
   }
   
   
-  func callRequest(recipient : String, index : NSInteger) {
+  func callRequest(_ recipient : String, index : NSInteger) {
     
     if session.connectedPeers.count > 0 {
-      var error : NSError?
       do {
-        try self.session.sendData(recipient.dataUsingEncoding(NSUTF8StringEncoding, allowLossyConversion: false)!, toPeers: [session.connectedPeers[index]], withMode: MCSessionSendDataMode.Reliable)
+        try self.session.send(Data(recipient.utf8), toPeers: [session.connectedPeers[index]], with: .reliable)
         self.selectedPeer = session.connectedPeers[index]
         print("connected peers --- > \(session.connectedPeers[index])")
-      } catch let error1 as NSError {
-        error = error1
-        print("\(error)")
+      } catch {
+        print(error)
       }
     }
     
   }
   
-  func sendDataToSelectedPeer(json:Dictionary<String,AnyObject>){
+  func sendDataToSelectedPeer(_ json:Dictionary<String,Any>){
     do {
-      let jsonData = try NSJSONSerialization.dataWithJSONObject(json, options: NSJSONWritingOptions.PrettyPrinted)
-      try self.session.sendData(jsonData, toPeers: [self.selectedPeer!], withMode: MCSessionSendDataMode.Reliable)
-      print("command \(json) --- > \(self.selectedPeer?.displayName)")
-    } catch let error1 as NSError {
-      print("\(error1)")
+      let jsonData = try JSONSerialization.data(withJSONObject: json, options: .prettyPrinted)
+      try self.session.send(jsonData, toPeers: [self.selectedPeer!], with: .reliable)
+      print("command \(json) --- > \(selectedPeer!.displayName)")
+    } catch {
+      print("\(error)")
     }
   }
   
@@ -91,12 +87,12 @@ class BonjourServiceManager : NSObject {
 }
 
 extension BonjourServiceManager : MCNearbyServiceAdvertiserDelegate {
-  
-  func advertiser(advertiser: MCNearbyServiceAdvertiser, didNotStartAdvertisingPeer error: NSError) {
+
+  func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didNotStartAdvertisingPeer error: Error) {
     print("didNotStartAdvertisingPeer: \(error)")
   }
-  
-  func advertiser(advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: NSData?, invitationHandler: ((Bool, MCSession) -> Void)) {
+
+  func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
     print("didReceiveInvitationFromPeer \(peerID)")
     invitationHandler(true, self.session)
   }
@@ -105,17 +101,17 @@ extension BonjourServiceManager : MCNearbyServiceAdvertiserDelegate {
 
 extension BonjourServiceManager : MCNearbyServiceBrowserDelegate {
   
-  func browser(browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: NSError) {
+  func browser(_ browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: Error) {
     print("didNotStartBrowsingForPeers: \(error)")
   }
   
-  func browser(browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
+  func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
     print("foundPeer: \(peerID)")
     print("invitePeer: \(peerID)")
-    browser.invitePeer(peerID, toSession: self.session, withContext: nil, timeout: 10)
+    browser.invitePeer(peerID, to: self.session, withContext: nil, timeout: 10)
   }
   
-  func browser(browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
+  func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
     print("lostPeer: \(peerID)")
   }
   
@@ -125,9 +121,9 @@ extension MCSessionState {
   
   func stringValue() -> String {
     switch(self) {
-    case .NotConnected: return "NotConnected"
-    case .Connecting: return "Connecting"
-    case .Connected: return "Connected"
+    case .notConnected: return "NotConnected"
+    case .connecting: return "Connecting"
+    case .connected: return "Connected"
     }
   }
   
@@ -135,7 +131,7 @@ extension MCSessionState {
 
 extension BonjourServiceManager : MCSessionDelegate {
   
-  func session(session: MCSession, peer peerID: MCPeerID, didChangeState state: MCSessionState) {
+  func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
     print("peer \(peerID) didChangeState: \(state.stringValue())")
     self.delegate?.connectedDevicesChanged(self, connectedDevices: session.connectedPeers.map({$0.displayName}))
     print(session.connectedPeers.map({$0.displayName}))
@@ -146,23 +142,22 @@ extension BonjourServiceManager : MCSessionDelegate {
     
   }
   
-  func session(session: MCSession, didReceiveData data: NSData, fromPeer peerID: MCPeerID) {
-    
-    let str = NSString(data: data, encoding: NSUTF8StringEncoding) as! String
+  func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
+    let str = String(decoding: data, as: UTF8.self)
     print("didReceiveData: \(str) from \(peerID.displayName) bytes")
     let peerId = peerID.displayName
     self.delegate?.receivedData(self, peerID: peerId, responseString: str)
   }
   
-  func session(session: MCSession, didReceiveStream stream: NSInputStream, withName streamName: String, fromPeer peerID: MCPeerID) {
+  func session(_ session: MCSession, didReceive stream: InputStream, withName streamName: String, fromPeer peerID: MCPeerID) {
     print("didReceiveStream")
   }
   
-  func session(session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, atURL localURL: NSURL, withError error: NSError?) {
+  func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, at localURL: URL?, withError error: Error?) {
     print("didFinishReceivingResourceWithName")
   }
   
-  func session(session: MCSession, didStartReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, withProgress progress: NSProgress) {
+  func session(_ session: MCSession, didStartReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, with progress: Progress) {
     print("didStartReceivingResourceWithName")
   }
   

@@ -9,10 +9,10 @@
 import Foundation
 @objc protocol WebrtcManagerProtocol {
 
-  func offerSDPCreated(sdp:RTCSessionDescription)
-  func localStreamAvailable(stream:RTCMediaStream)
-  func remoteStreamAvailable(stream:RTCMediaStream)
-  func answerSDPCreated(sdp:RTCSessionDescription)
-  func iceCandidatesCreated(iceCandidate:RTCICECandidate)
-  func dataReceivedInChannel(data:NSData)
+  func offerSDPCreated(_ sdp:RTCSessionDescription)
+  func localStreamAvailable(_ stream:RTCMediaStream)
+  func remoteStreamAvailable(_ stream:RTCMediaStream)
+  func answerSDPCreated(_ sdp:RTCSessionDescription)
+  func iceCandidatesCreated(_ iceCandidate:RTCICECandidate)
+  func dataReceivedInChannel(_ data:Data)
 }
